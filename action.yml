@@ -1,0 +1,52 @@
+name: Build source rpm
+description: Build source rpm
+inputs:
+  tarball:
+    description: Tarball with the sources
+    required: true
+  specfile:
+    description: RPM spec file
+    required: true
+outputs:
+  path:
+    description: Path to the created source rpm
+    value: ${{ steps.result.outputs.path }}
+  file:
+    description: File name to the created source rpm
+    value: ${{ steps.result.outputs.file }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare rpm directory structure
+      id: buildroot
+      shell: bash
+      run: |
+        dir=`mktemp -d`
+
+        mkdir -p $dir/rpmbuild/BUILD
+        mkdir -p $dir/rpmbuild/RPMS
+        mkdir -p $dir/rpmbuild/SOURCES
+        mkdir -p $dir/rpmbuild/SPECS
+        mkdir -p $dir/rpmbuild/SRPMS
+
+        echo ::set-output name=path::$dir/rpmbuild
+
+    - name: Move tarball to rpm buildroot
+      shell: bash
+      run: |
+        cp ${{ inputs.tarball }} ${{ steps.buildroot.outputs.path }}/SOURCES/
+
+    - name: Build source rpm
+      id: build
+      shell: bash
+      run: |
+        rpmbuild --define "_topdir ${{ steps.buildroot.outputs.path }}" -bs ${{ inputs.specfile }}
+
+    - name: Set output srpm path
+      id: result
+      shell: bash
+      run: |
+        path=`ls ${{ steps.buildroot.outputs.path }}/SRPMS/*.rpm`
+        file=`basename $path`
+        echo ::set-output name=path::$path
+        echo ::set-output name=file::$file
